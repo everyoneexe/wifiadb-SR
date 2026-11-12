@@ -135,4 +135,4 @@ cleanup_stale_daemon
 
     print_log "---- magisk-wifiadb started (PID: $$) ----"
     maintain_adb_availability
-) &
+) >/dev/null 2>&1 &
