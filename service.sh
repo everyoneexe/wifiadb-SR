@@ -30,14 +30,17 @@ print_log() {
 }
 
 cleanup_stale_daemon() {
-    if [ -f "$PID_FILE" ]; then
-        OLD_PID=$(cat "$PID_FILE" 2>/dev/null)
-        if [ -n "$OLD_PID" ] && [ -d "/proc/$OLD_PID" ]; then
-            print_log "Stale daemon found (PID: $OLD_PID). Terminating..."
-            kill -9 "$OLD_PID" 2>/dev/null
+    # Terminate legacy magisk-wifiadb processes if any remain
+    pkill -9 -f "modules/magisk-wifiadb/service.sh" 2>/dev/null
+
+    # Terminate any duplicate or stale wifiadb-sr background loops
+    for pid in $(pgrep -f "modules/wifiadb-sr/service.sh" 2>/dev/null); do
+        if [ "$pid" != "$$" ] && [ "$pid" != "$PPID" ]; then
+            print_log "Stale daemon found (PID: $pid). Terminating..."
+            kill -9 "$pid" 2>/dev/null
         fi
-        rm -f "$PID_FILE"
-    fi
+    done
+    rm -f "$PID_FILE"
 }
 
 start_adb() {
