@@ -18,14 +18,26 @@ STATUS_CHK_FREQUENCY=""
 
 # constant definitions
 DEFAULT_ADB_PORT="5555"
-DEFAULT_STATUS_CHK_FREQUENCY="1"
+DEFAULT_STATUS_CHK_FREQUENCY="5"
 ADB_PORT_PATTERN='^([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$'
-STATUS_CHK_FREQUENCY_PATTERN='^([1-9]|10)$'
+STATUS_CHK_FREQUENCY_PATTERN='^[1-9][0-9]*$'
+PID_FILE="/data/local/tmp/magisk_wifiadb.pid"
 
 # functions
 print_log() {
     [ "$ENABLE_LOG" != "1" ] && return
     echo "$(date '+[%Y-%m-%d %I:%M:%S]') $1" >> /data/local/tmp/wifiadb.log
+}
+
+cleanup_stale_daemon() {
+    if [ -f "$PID_FILE" ]; then
+        OLD_PID=$(cat "$PID_FILE" 2>/dev/null)
+        if [ -n "$OLD_PID" ] && [ -d "/proc/$OLD_PID" ]; then
+            print_log "Stale daemon found (PID: $OLD_PID). Terminating..."
+            kill -9 "$OLD_PID" 2>/dev/null
+        fi
+        rm -f "$PID_FILE"
+    fi
 }
 
 start_adb() {
@@ -54,7 +66,14 @@ check_adb_status() {
 
 maintain_adb_availability() {
     while true; do
-        # print_log "Checking ADB status..."
+        # Soft Reboot / System Recovery Detection:
+        # If the system is currently soft rebooting or Android framework is restarting,
+        # pause operations to prevent race conditions, adbd flapping, and ZRAM thrashing.
+        if [ "$(getprop sys.boot_completed)" != "1" ]; then
+            print_log "Soft reboot or boot in progress, waiting for sys.boot_completed..."
+            sleep 3
+            continue
+        fi
 
         if [ -e "${MODDIR}/disable" ]; then
             check_adb_status
@@ -70,14 +89,14 @@ maintain_adb_availability() {
             fi
         fi
 
-        sleep $STATUS_CHK_FREQUENCY
+        sleep "$STATUS_CHK_FREQUENCY"
     done
 }
 
 load_config() {
     CONFIG_PATH="${MODDIR}/config"
     if [ -f "$CONFIG_PATH" ]; then
-        source "$CONFIG_PATH"
+        . "$CONFIG_PATH"
         print_log "Config file loaded."
     else
         print_log "Config file not found."
@@ -98,8 +117,15 @@ parse_config() {
     print_log "STATUS_CHK_FREQUENCY value: $STATUS_CHK_FREQUENCY"
 }
 
+# Clean up any lingering (stale) daemon from previous boots or soft reboots
+cleanup_stale_daemon
+
 # This script will be executed in late_start service mode
 (
+    # Register PID for singleton tracking and Vector-SR style stale management
+    echo $$ > "$PID_FILE"
+    trap 'rm -f "$PID_FILE"; exit 0' INT TERM HUP EXIT
+
     until [ "$(getprop sys.boot_completed)" -eq 1 ]; do
         sleep 1
     done
@@ -107,6 +133,6 @@ parse_config() {
     load_config
     parse_config
 
-    print_log "---- magisk-wifiadb started ----"
+    print_log "---- magisk-wifiadb started (PID: $$) ----"
     maintain_adb_availability
 ) &

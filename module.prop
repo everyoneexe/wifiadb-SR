@@ -1,6 +1,6 @@
-id=magisk-wifiadb
-name=MagiskWiFiADB
-version=1.1.0
-versionCode=004
-author=mrh929
-description=A module that maintains ADB availability.
+id=wifiadb-sr
+name=WiFiADB-SR
+version=1.1.0-SR
+versionCode=005
+author=everyoneexe (forked from mrh929)
+description=Maintains WiFi ADB availability with Soft Reboot (SR) support and stale daemon prevention.
