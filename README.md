@@ -4,7 +4,7 @@
 
 WiFiADB-SR is a Magisk / KernelSU / APatch module that adds persistent Wireless (WiFi) Debugging to Android Stock and Custom ROMs, enhanced with full protection against soft-reboot performance degradation.
 
-## 🚀 Key Improvements in WiFiADB-SR
+## Key Improvements in WiFiADB-SR
 
 - **Soft Reboot (SR) Awareness:** The background watchdog continuously monitors `sys.boot_completed` during runtime. If Android runtime / Zygote restarts (soft reboot), the script pauses immediately and avoids restarting `adbd` while framework is recovering, preventing race conditions.
 - **Stale Daemon Prevention (Vector-SR approach):** Uses a PID tracking mechanism (`/data/local/tmp/magisk_wifiadb.pid`) to detect and terminate any hanging or orphaned background shell instances from previous runs or soft reboots.
